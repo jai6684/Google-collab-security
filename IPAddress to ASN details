@@ -1,0 +1,57 @@
+# Install necessary libraries
+!pip install ipwhois openpyxl pandas
+
+import pandas as pd
+from ipwhois import IPWhois
+from google.colab import files
+import os
+
+def fetch_ip_details(ip):
+    try:
+        # Query details about the IP address
+        obj = IPWhois(ip)
+        results = obj.lookup_rdap()
+        return {
+            "IP Address": ip,
+            "ASN": results.get("asn"),
+            "ASN Organization": results.get("asn_description"),
+            "ASN Country": results.get("asn_country_code"),
+            "ASN CIDR": results.get("asn_cidr"),
+            "Network Name": results.get("network", {}).get("name"),
+            "Network Country": results.get("network", {}).get("country"),
+            "Owner": results.get("network", {}).get("remarks", [{}])[0].get("description", None)
+        }
+    except Exception as e:
+        return {"IP Address": ip, "Error": str(e)}
+
+def process_ips(file_path):
+    # Load the text file
+    with open(file_path, 'r') as file:
+        ips = [line.strip() for line in file if line.strip()]
+
+    # Fetch IP details for each IP
+    data = [fetch_ip_details(ip) for ip in ips]
+
+    # Convert the results into a DataFrame
+    output_df = pd.DataFrame(data)
+    output_file = "ip_details.xlsx"
+
+    # Save the DataFrame to an Excel file
+    output_df.to_excel(output_file, index=False)
+    return output_file
+
+# Upload the text file and process
+print("Please upload a text file with IP addresses (one per line):")
+uploaded = files.upload()
+
+if uploaded:
+    input_file = next(iter(uploaded))
+    try:
+        output_file = process_ips(input_file)
+        print(f"IP details processed and saved to {output_file}. Downloading now...")
+        files.download(output_file)
+    except Exception as e:
+        print(f"Error: {e}")
+    finally:
+        # Cleanup
+        os.remove(input_file)
